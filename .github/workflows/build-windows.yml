@@ -42,7 +42,7 @@ jobs:
           PYTHONIOENCODING: utf-8
           PYTHONUTF8: '1'
         run: |
-          set PYTHONPATH=src
+          $env:PYTHONPATH = "src"
           python tests/test_core.py
 
       - name: PyInstaller build (.exe)
