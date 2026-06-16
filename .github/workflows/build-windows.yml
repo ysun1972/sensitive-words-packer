@@ -83,15 +83,15 @@ jobs:
 
       - name: Prepare Release payload
         if: startsWith(github.ref, 'refs/tags/v')
-        shell: bash
+        shell: pwsh
         run: |
-          mkdir -p release
-          cp dist/swp.exe release/swp.exe
-          cp README.md release/
-          cp docs/USER_GUIDE.md release/
-          cp docs/BUILD.md release/
-          cd release
-          zip -r ../swp-windows-v${{ github.ref_name }}.zip .
+          New-Item -ItemType Directory -Force -Path release | Out-Null
+          Copy-Item dist/swp.exe release/swp.exe
+          Copy-Item README.md release/README.md
+          Copy-Item docs/USER_GUIDE.md release/USER_GUIDE.md
+          Copy-Item docs/BUILD.md release/BUILD.md
+          Compress-Archive -Path release/* -DestinationPath swp-windows-${{ github.ref_name }}.zip -Force
+          Get-ChildItem swp-windows-${{ github.ref_name }}.zip | Format-List Name, Length
 
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
@@ -100,8 +100,8 @@ jobs:
           name: swp-windows-${{ github.ref_name }}
           generate_release_notes: true
           files: |
-            swp-windows-v${{ github.ref_name }}.zip
-            release/swp.exe
+            swp-windows-${{ github.ref_name }}.zip
+            dist/swp.exe
 
       - name: Manual release (workflow_dispatch)
         if: github.event_name == 'workflow_dispatch' && inputs.publish_release
