@@ -26,6 +26,7 @@ jobs:
           cache: pip
 
       - name: Install dependencies
+        shell: pwsh
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
@@ -34,21 +35,20 @@ jobs:
         env:
           PYTHONIOENCODING: utf-8
           PYTHONUTF8: '1'
+        shell: pwsh
         run: |
-          if [ "$RUNNER_OS" == "Windows" ]; then
-            set PYTHONPATH=src
-            python tests/test_core.py
-          else
-            PYTHONPATH=src python tests/test_core.py
-          fi
+          $env:PYTHONPATH = "src"
+          python tests/test_core.py
 
       - name: Generate sample PDF (ubuntu/macos)
         if: matrix.os != 'windows-latest'
+        shell: bash
         run: |
           PYTHONPATH=src python scripts/gen_sample_pdf.py
 
       - name: CLI smoke test (ubuntu/macos)
         if: matrix.os != 'windows-latest'
+        shell: bash
         run: |
           PYTHONPATH=src python src/cli.py \
             -i sample/input \
