@@ -1,0 +1,105 @@
+name: Build Windows EXE
+
+# 触发条件：
+#   - 推送 v* tag（自动发布 release）
+#   - 手动触发（workflow_dispatch）
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      publish_release:
+        description: '同时发布 Release（仅在手动触发时生效）'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write   # 创建 release 需要
+
+jobs:
+  build:
+    name: Build on windows-latest
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run unit tests
+        run: |
+          set PYTHONPATH=src
+          python tests/test_core.py
+
+      - name: PyInstaller build (.exe)
+        run: |
+          if exist build rmdir /s /q build
+          if exist dist  rmdir /s /q dist
+          pyinstaller ^
+            --onefile ^
+            --name swp ^
+            --add-data "sample;sample" ^
+            --hidden-import docx ^
+            --hidden-import pypdf ^
+            --hidden-import reportlab ^
+            --hidden-import reportlab.pdfbase.cidfonts ^
+            --hidden-import reportlab.pdfbase._fontdata ^
+            --collect-all docx ^
+            --collect-all reportlab ^
+            src\cli.py
+
+      - name: Verify exe exists
+        run: |
+          if not exist dist\swp.exe (
+            echo "[FAIL] dist\swp.exe not generated"
+            exit /b 1
+          )
+          dir dist\swp.exe
+
+      - name: Upload exe artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: swp-windows-exe
+          path: dist/swp.exe
+          if-no-files-found: error
+
+      - name: Prepare Release payload
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          mkdir -p release
+          cp dist/swp.exe release/swp.exe
+          cp README.md release/
+          cp docs/USER_GUIDE.md release/
+          cp docs/BUILD.md release/
+          cd release
+          zip -r ../swp-windows-v${{ github.ref_name }}.zip .
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: swp-windows-${{ github.ref_name }}
+          generate_release_notes: true
+          files: |
+            swp-windows-v${{ github.ref_name }}.zip
+            release/swp.exe
+
+      - name: Manual release (workflow_dispatch)
+        if: github.event_name == 'workflow_dispatch' && inputs.publish_release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: swp-manual-${{ github.run_number }}
+          generate_release_notes: true
+          files: dist/swp.exe

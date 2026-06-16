@@ -1,0 +1,31 @@
+# 忽略 build/dist 中间产物与 IDE 配置
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# PyInstaller
+/build/
+/dist/
+
+# 虚拟环境
+/venv/
+/.venv/
+/env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# 测试
+.pytest_cache/
+.coverage
+htmlcov/
+
+# macOS
+.DS_Store
+
+# 临时输出（演示用）
+/sample/output/
+/run.log

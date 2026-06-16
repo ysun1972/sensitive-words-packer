@@ -1,0 +1,11 @@
+# 核心依赖（运行 + 打包）
+python-docx>=1.1.0   # .docx 文件读写
+pypdf>=4.0           # .pdf 文件读取
+reportlab>=4.0       # .pdf 文件输出（内置 STSong-Light CJK 字体）
+pyinstaller>=6.0     # 打包为 .exe
+
+# 可选
+# pdfplumber>=0.10   # 更精准的 PDF 文本提取（中文支持好，但打包体积大）
+
+# 开发依赖
+pytest>=8.0

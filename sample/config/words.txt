@@ -1,0 +1,14 @@
+# 演示敏感词列表 - 每行一个，支持 # 注释
+# 客户名称
+张三
+李四
+王五
+AcmeCorp
+
+# 内部代号
+ProjectPhoenix
+蓝海计划
+
+# 联系方式（建议改用 rules.json 中的正则更准确）
+18612345678
+admin@company.com
