@@ -46,6 +46,8 @@ jobs:
         run: |
           $env:PYTHONPATH = "src"
           python tests/test_core.py
+          python tests/test_excel.py
+          python tests/test_batch.py
 
       - name: PyInstaller build (.exe)
         shell: pwsh
@@ -54,8 +56,15 @@ jobs:
           if (Test-Path dist)  { Remove-Item -Recurse -Force dist }
           pyinstaller `
             --onefile `
+            --windowed `
             --name swp `
             --add-data "sample;sample" `
+            --hidden-import core `
+            --hidden-import cli `
+            --hidden-import gui `
+            --hidden-import batch `
+            --hidden-import excel_handler `
+            --hidden-import file_handlers `
             --hidden-import docx `
             --hidden-import pypdf `
             --hidden-import reportlab `
@@ -63,6 +72,8 @@ jobs:
             --hidden-import reportlab.pdfbase._fontdata `
             --collect-all docx `
             --collect-all reportlab `
+            --collect-all openpyxl `
+            --collect-all tkinter `
             src/cli.py
 
       - name: Verify exe exists

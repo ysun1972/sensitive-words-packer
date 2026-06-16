@@ -1,0 +1,27 @@
+{
+  "_comment": "sensitive-words-packer 批量任务示例；删除此 _comment 行后使用",
+  "tasks": [
+    {
+      "name": "示例任务 1 - 文本脱敏",
+      "input": "./sample/input",
+      "output": "./sample/output_marketing",
+      "words": "./sample/config/words.txt",
+      "rules": "./sample/config/rules.json",
+      "mode": "exact,rule",
+      "wildcard": "***",
+      "log": "marketing.log"
+    },
+    {
+      "name": "示例任务 2 - Excel 词表",
+      "input": "./sample/input",
+      "output": "./sample/output_finance",
+      "excel": "./sample/config/words_demo.xlsx",
+      "excel_sheet": "敏感词",
+      "excel_column": "敏感词",
+      "rules": "./sample/config/rules.json",
+      "mode": "exact,rule",
+      "wildcard": "[REDACTED]",
+      "log": "finance.log"
+    }
+  ]
+}

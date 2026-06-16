@@ -1,101 +1,108 @@
 """
-sensitive-words-packer 命令行入口
+sensitive-words-packer v0.2.0 入口（dispatcher）
+
+启动行为：
+1. 传 `--cli` 标志 → 走命令行模式（v0.1.0 行为）
+2. 无参数 + TTY（终端）→ 走命令行模式
+3. 无参数 + 非 TTY（双击 .exe）→ 启动 GUI
+
+这样能解决 v0.1.0 的"双击闪退"问题，同时保留脚本批处理能力。
 """
 from __future__ import annotations
 
-import argparse
 import sys
 from pathlib import Path
 
-# 允许直接 python src/cli.py 运行
+# 允许直接 python src/cli.py
 sys.path.insert(0, str(Path(__file__).parent))
 
-from core import (
-    SensitiveWordRedactor,
-    load_words_file,
-    load_rules_file,
-    WordMatch,
-)
-from file_handlers import get_handler, copy_file, supported_extensions
 
-
-def process_file(
-    src: Path,
-    dst_dir: Path,
-    redactor: SensitiveWordRedactor,
-    modes: list[str],
-    log_lines: list[str],
-) -> dict:
-    """处理单个文件，返回统计"""
-    handler = get_handler(src)
-    dst = dst_dir / src.name
-    stats = {"file": str(src), "status": "skipped", "matches": 0, "outputs": []}
-
-    if handler is None:
-        # 不支持格式：直接复制
-        outs = copy_file(src, dst_dir)
-        stats["status"] = "copied"
-        stats["outputs"] = [str(o) for o in outs]
-        return stats
-
-    try:
-        text = handler.read(src)
-    except Exception as e:
-        stats["status"] = f"read-error: {e}"
-        return stats
-
-    result = redactor.redact(text, source_file=src.name, modes=modes)
-    try:
-        outs = handler.write(dst, result.redacted_text)
-    except Exception as e:
-        stats["status"] = f"write-error: {e}"
-        return stats
-
-    stats["status"] = "ok"
-    stats["matches"] = len(result.matches)
-    stats["outputs"] = [str(o) for o in outs]
-    for m in result.matches:
-        log_lines.append(
-            f"[{m.mode}{':' + m.rule_name if m.rule_name else ''}] "
-            f"{m.file}:{m.line}  '{m.original}' -> '{m.replacement}'"
-        )
-    return stats
+def _should_launch_gui() -> bool:
+    """判断是否应启动 GUI"""
+    # 显式 --cli 走命令行
+    if "--cli" in sys.argv[1:]:
+        return False
+    # 有任何参数（如 -i）走命令行
+    if len(sys.argv) > 1:
+        return False
+    # TTY（终端）走命令行（开发者场景）
+    if sys.stdout.isatty() and sys.stderr.isatty():
+        return False
+    # 双击 .exe（无 TTY）走 GUI
+    return True
 
 
 def main():
+    if _should_launch_gui():
+        try:
+            from gui import main as gui_main
+            gui_main()
+            return
+        except ImportError as e:
+            print(f"GUI 启动失败 ({e})，回退到命令行模式", file=sys.stderr)
+            print("（命令行用法：swp.exe --cli -i 输入 -o 输出 [选项]）", file=sys.stderr)
+
+    # CLI 模式（剥离 --cli 标记后传给原 main）
+    if "--cli" in sys.argv:
+        sys.argv.remove("--cli")
+    _run_cli()
+
+
+def _run_cli():
+    """原 v0.1.0 命令行主流程"""
+    import argparse
+    from core import (
+        SensitiveWordRedactor,
+        load_words_file,
+        load_rules_file,
+    )
+    from file_handlers import get_handler, copy_file, supported_extensions
+    from excel_handler import load_excel_words
+    from batch import run_batch
+
     parser = argparse.ArgumentParser(
-        description="敏感词脱敏工具 - 输入文件/目录，输出脱敏后文件",
+        description="敏感词脱敏工具 v0.2.0 - 命令行模式",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-示例:
-  # 精确匹配 + 规则模式
-  python cli.py -i input.txt -o output/ --words words.txt --rules rules.json
-
-  # 模糊匹配
-  python cli.py -i ./docs -o ./docs_clean --words words.txt --mode fuzzy
-
-  # 仅规则模式（不传 --words）
-  python cli.py -i input.txt -o output/ --rules rules.json --mode rule
+模式（v0.2.0）:
+  - 默认行为：双击 .exe 启动 GUI；命令行使用 --cli 标志
+  - 单文件:  swp.exe --cli -i in.txt -o out/ --words w.txt
+  - 批量:    swp.exe --cli --batch tasks.json
+  - 仅规则:  swp.exe --cli -i in.txt -o out/ --rules r.json --mode rule
+  - Excel:   swp.exe --cli -i in.txt -o out/ --excel words.xlsx
         """,
     )
-    parser.add_argument("-i", "--input", required=True, help="输入文件或目录")
-    parser.add_argument("-o", "--output", required=True, help="输出目录")
+    parser.add_argument("-i", "--input", help="输入文件或目录")
+    parser.add_argument("-o", "--output", help="输出目录")
     parser.add_argument("--words", help="敏感词列表文件（.txt，每行一个）")
+    parser.add_argument("--excel", help="Excel 词表（.xlsx）")
+    parser.add_argument("--excel-sheet", help="Excel 工作表名/索引")
+    parser.add_argument("--excel-column", help="Excel 列名/列字母/列号")
     parser.add_argument("--rules", help="规则文件（.json，正则列表）")
+    parser.add_argument("--batch", help="批量任务配置（.json）")
     parser.add_argument(
-        "--mode",
-        default="exact,rule",
+        "--mode", default="exact,rule",
         help="脱敏模式（逗号分隔）：exact / fuzzy / rule，默认 exact,rule",
     )
-    parser.add_argument(
-        "--wildcard", default="***",
-        help="脱敏通配符（默认 ***）",
-    )
-    parser.add_argument(
-        "--log", default="run.log",
-        help="审计日志路径（默认 run.log）",
-    )
+    parser.add_argument("--wildcard", default="***", help="脱敏通配符（默认 ***）")
+    parser.add_argument("--log", default="run.log", help="审计日志路径（默认 run.log）")
     args = parser.parse_args()
+
+    # ---- 批量模式 ----
+    if args.batch:
+        from batch import run_batch
+        results = run_batch(args.batch)
+        for r in results:
+            status = "✓" if r.status == "ok" else "✗"
+            extra = f" ({r.error})" if r.error else ""
+            print(f"  {status} {r.task.name}: {r.status}{extra}")
+        return
+
+    # ---- 单文件模式 ----
+    if not args.input or not args.output:
+        parser.print_help()
+        print("\n错误：单文件模式必须提供 -i 和 -o", file=sys.stderr)
+        sys.exit(1)
 
     # 解析模式
     mode_map = {"exact": "word-exact", "fuzzy": "word-fuzzy", "rule": "rule"}
@@ -108,16 +115,31 @@ def main():
             modes.append(m)
         else:
             print(f"警告：未知模式 '{m}'（应为 exact/fuzzy/rule）")
-
     if not modes:
         print("错误：至少启用一个模式")
         sys.exit(1)
 
-    # 加载敏感词与规则
-    words = load_words_file(args.words) if args.words else []
+    # 加载敏感词
+    words: list[str] = []
+    if args.words:
+        words.extend(load_words_file(args.words))
+    if args.excel:
+        try:
+            sheet = args.excel_sheet
+            if sheet and sheet.lstrip("-").isdigit():
+                sheet = int(sheet)
+            column = args.excel_column
+            if column and column.lstrip("-").isdigit():
+                column = int(column)
+            words.extend(load_excel_words(args.excel, sheet=sheet, column=column))
+        except Exception as e:
+            print(f"错误：加载 Excel 失败: {e}")
+            sys.exit(1)
+
+    # 加载规则
     rules = load_rules_file(args.rules) if args.rules else []
     if not words and not rules:
-        print("错误：必须提供 --words 或 --rules 至少一个")
+        print("错误：必须提供 --words/--excel/--rules 至少一个")
         sys.exit(1)
 
     redactor = SensitiveWordRedactor(words=words, rules=rules, wildcard=args.wildcard)
@@ -125,19 +147,12 @@ def main():
     print(f"启用模式: {', '.join(modes)}")
     print(f"通配符: {args.wildcard}")
 
-    # 收集输入文件
+    # 收集输入
     input_path = Path(args.input)
     output_dir = Path(args.output)
     output_dir.mkdir(parents=True, exist_ok=True)
-
-    if input_path.is_file():
-        files = [input_path]
-    elif input_path.is_dir():
-        files = [p for p in input_path.rglob("*") if p.is_file()]
-    else:
-        print(f"错误：输入路径不存在: {input_path}")
-        sys.exit(1)
-
+    files = [input_path] if input_path.is_file() else \
+        [p for p in input_path.rglob("*") if p.is_file()]
     print(f"待处理文件数: {len(files)}")
     print(f"支持格式: {', '.join(supported_extensions())}")
 
@@ -145,16 +160,33 @@ def main():
     log_lines: list[str] = []
     total_matches = 0
     for f in files:
-        stats = process_file(f, output_dir, redactor, modes, log_lines)
-        total_matches += stats["matches"]
-        flag = "✓" if stats["status"] == "ok" else ("⤳" if stats["status"] == "copied" else "✗")
-        match_info = f"  ({stats['matches']} 处)" if stats["matches"] else ""
-        # 多产物显示：例如 report.pdf → report.pdf + report.docx
-        outputs_info = ""
-        if stats.get("outputs") and len(stats["outputs"]) > 1:
-            extra = [Path(o).name for o in stats["outputs"][1:]]
-            outputs_info = f"  [+] {', '.join(extra)}"
-        print(f"  {flag} {f.name}  [{stats['status']}]{match_info}{outputs_info}")
+        handler = get_handler(f)
+        if handler is None:
+            outs = copy_file(f, output_dir)
+            print(f"  ⤳ {f.name}  [copied]")
+            continue
+        try:
+            text = handler.read(f)
+        except Exception as e:
+            print(f"  ✗ {f.name}  [read-error: {e}]")
+            continue
+        result = redactor.redact(text, source_file=f.name, modes=modes)
+        try:
+            outs = handler.write(output_dir / f.name, result.redacted_text)
+        except Exception as e:
+            print(f"  ✗ {f.name}  [write-error: {e}]")
+            continue
+        total_matches += len(result.matches)
+        extra = ""
+        if len(outs) > 1:
+            extra = "  [+] " + ", ".join(o.name for o in outs[1:])
+        match_info = f"  ({len(result.matches)} 处)" if result.matches else ""
+        print(f"  ✓ {f.name}  [ok]{match_info}{extra}")
+        for m in result.matches:
+            log_lines.append(
+                f"[{m.mode}{':' + m.rule_name if m.rule_name else ''}] "
+                f"{m.file}:{m.line}  '{m.original}' -> '{m.replacement}'"
+            )
 
     # 写审计日志
     log_path = output_dir / args.log

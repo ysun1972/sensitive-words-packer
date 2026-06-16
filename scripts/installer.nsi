@@ -1,5 +1,5 @@
 ; ============================================================
-; NSIS 安装包脚本 - 由 makensis 编译
+; NSIS 安装包脚本 (v0.2.0) - 由 makensis 编译
 ; 依赖: NSIS 3.0+ (https://nsis.sourceforge.io/)
 ; 用法 (Windows):
 ;   1. 先运行 scripts/build_exe.bat 生成 dist/swp.exe
@@ -11,7 +11,7 @@ Unicode True
 SetCompressor /SOLID lzma
 
 !define APP_NAME "Sensitive Words Packer"
-!define APP_VERSION "0.1.0"
+!define APP_VERSION "0.2.0"
 !define APP_PUBLISHER "YSUN"
 !define APP_EXE "swp.exe"
 
