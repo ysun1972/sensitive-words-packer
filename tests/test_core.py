@@ -1,6 +1,14 @@
 """脱敏核心模块测试"""
 import sys
 from pathlib import Path
+
+# 强制 UTF-8 stdout（Windows cp1252 不能输出中文/特殊字符）
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
+except Exception:
+    pass
+
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from core import SensitiveWordRedactor, Rule, load_words_file, load_rules_file

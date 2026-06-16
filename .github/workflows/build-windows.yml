@@ -38,6 +38,9 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run unit tests
+        env:
+          PYTHONIOENCODING: utf-8
+          PYTHONUTF8: '1'
         run: |
           set PYTHONPATH=src
           python tests/test_core.py
