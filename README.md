@@ -1,9 +1,18 @@
-# sensitive-words-packer (v0.2.1)
+# sensitive-words-packer (v0.2.2)
 
 > **本版本仅供 IDE / 命令行环境使用，不打包 .exe**。
 > 适合在开发环境（VSCode / PyCharm / macOS / Linux）中直接 `python` 跑，方便调试。
 
 一个轻量的本地敏感词脱敏工具：用户输入敏感词列表（或自定义规则），对指定目录下的文本文件进行脱敏处理，输出到指定目录。
+
+## v0.2.2 新增特性
+
+相比 v0.2.1：
+- **🚀 启动时自动依赖检查 + 安装**：GUI 启动时检查 `python-docx / pypdf / reportlab / openpyxl`，缺哪个自动 `pip install`（默认清华源）
+- **📝 GUI 内置敏感词编辑器**：直接编辑保存 `.txt`，支持加载/新建/插入示例
+- **🔧 GUI 内置规则编辑器**：表格化编辑 `rules.json`，支持添加/删除/上移/下移/双击编辑
+- **📊 GUI 内置 Excel 词表编辑器**：表格化编辑 `.xlsx`，支持添加行/列/重命名/删除
+- **5 个 tab**：单次脱敏 / 批量任务 / 敏感词编辑 / 规则编辑 / Excel 编辑
 
 ## 核心特性
 
@@ -196,12 +205,14 @@ example.com
 | --- | --- | --- |
 | v0.1.0 | CLI 基础 + .txt/.md/.docx/.pdf 多格式 | 双击 .exe 闪退 |
 | v0.2.0 | + GUI（tkinter）+ Excel 词表 + 批量任务 | 打包 .exe 复杂 |
-| **v0.2.1** | **IDE / 命令行专用，移除打包相关** | 当前版本 |
+| v0.2.1 | IDE / 命令行专用，移除打包相关 | 删除 __init__.py |
+| **v0.2.2** | **+ 启动自动装依赖 + 3 个内置编辑器** | **当前版本** |
 
-v0.2.1 主要清理：
-- 删除 `src/__init__.py`（避免 PyInstaller 把它当 package 引起 import 错误）
-- 移除所有 PyInstaller / NSIS / GitHub Actions 打包文件
-- 简化 `cli.py`：去掉 dispatcher 双模式判断（命令行是默认，GUI 需显式 `python src/gui.py`）
+v0.2.2 主要新增：
+- `src/deps.py`：`check_deps()` + `install_deps()`，缺啥装啥
+- `src/gui.py`：3 个新 tab（敏感词/规则/Excel 编辑器），用 `EditableTreeview` 实现双击编辑
+- `DepsInstallDialog` Toplevel 弹窗，pip 实时输出到滚动文本框
+- 38 个单元测试（新增 17 个：7 deps + 10 gui）
 
 ## 常见问题
 
