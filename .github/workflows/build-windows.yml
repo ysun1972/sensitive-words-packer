@@ -33,6 +33,7 @@ jobs:
           cache: 'pip'
 
       - name: Install dependencies
+        shell: pwsh
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
@@ -41,34 +42,37 @@ jobs:
         env:
           PYTHONIOENCODING: utf-8
           PYTHONUTF8: '1'
+        shell: pwsh
         run: |
           $env:PYTHONPATH = "src"
           python tests/test_core.py
 
       - name: PyInstaller build (.exe)
+        shell: pwsh
         run: |
-          if exist build rmdir /s /q build
-          if exist dist  rmdir /s /q dist
-          pyinstaller ^
-            --onefile ^
-            --name swp ^
-            --add-data "sample;sample" ^
-            --hidden-import docx ^
-            --hidden-import pypdf ^
-            --hidden-import reportlab ^
-            --hidden-import reportlab.pdfbase.cidfonts ^
-            --hidden-import reportlab.pdfbase._fontdata ^
-            --collect-all docx ^
-            --collect-all reportlab ^
-            src\cli.py
+          if (Test-Path build) { Remove-Item -Recurse -Force build }
+          if (Test-Path dist)  { Remove-Item -Recurse -Force dist }
+          pyinstaller `
+            --onefile `
+            --name swp `
+            --add-data "sample;sample" `
+            --hidden-import docx `
+            --hidden-import pypdf `
+            --hidden-import reportlab `
+            --hidden-import reportlab.pdfbase.cidfonts `
+            --hidden-import reportlab.pdfbase._fontdata `
+            --collect-all docx `
+            --collect-all reportlab `
+            src/cli.py
 
       - name: Verify exe exists
+        shell: pwsh
         run: |
-          if not exist dist\swp.exe (
-            echo "[FAIL] dist\swp.exe not generated"
-            exit /b 1
-          )
-          dir dist\swp.exe
+          if (-not (Test-Path dist/swp.exe)) {
+            Write-Error "[FAIL] dist/swp.exe not generated"
+            exit 1
+          }
+          Get-Item dist/swp.exe | Format-List Name, Length
 
       - name: Upload exe artifact
         uses: actions/upload-artifact@v4
