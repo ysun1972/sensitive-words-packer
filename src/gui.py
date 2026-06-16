@@ -481,7 +481,12 @@ def main():
             Path("stderr.log").write_text(err, encoding="utf-8")
         except Exception:
             pass
-        print(err, file=sys.stderr)
+        # PyInstaller --windowed 下 sys.stderr 可能是 None
+        try:
+            if sys.stderr is not None:
+                print(err, file=sys.stderr)
+        except Exception:
+            pass
         try:
             messagebox.showerror("启动失败", f"{e}\n\n详见 stderr.log")
         except Exception:

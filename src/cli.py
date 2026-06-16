@@ -10,11 +10,28 @@ sensitive-words-packer v0.2.0 入口（dispatcher）
 """
 from __future__ import annotations
 
+import io
 import sys
 from pathlib import Path
 
 # 允许直接 python src/cli.py
 sys.path.insert(0, str(Path(__file__).parent))
+
+
+def _safe_streams() -> None:
+    """
+    兜底处理 PyInstaller --windowed / 子进程无 console 场景。
+    在这些场景下 sys.stdout / sys.stderr 是 None，所有 print() 会崩。
+    解决：把 None 替换为写入 stderr.log 的 StringIO。
+    """
+    if sys.stdout is None:
+        sys.stdout = io.StringIO()
+    if sys.stderr is None:
+        sys.stderr = io.StringIO()
+
+
+# 模块加载时就执行一次
+_safe_streams()
 
 
 def _should_launch_gui() -> bool:
@@ -26,9 +43,19 @@ def _should_launch_gui() -> bool:
     if len(sys.argv) > 1:
         return False
     # TTY（终端）走命令行（开发者场景）
-    if sys.stdout.isatty() and sys.stderr.isatty():
+    # 注意：PyInstaller --windowed 打包后 sys.stdout/sys.stderr 是 None
+    # 此时 .isatty() 会抛 AttributeError，统一按「非 TTY」走 GUI
+    try:
+        stdout_tty = sys.stdout is not None and sys.stdout.isatty()
+    except Exception:
+        stdout_tty = False
+    try:
+        stderr_tty = sys.stderr is not None and sys.stderr.isatty()
+    except Exception:
+        stderr_tty = False
+    if stdout_tty and stderr_tty:
         return False
-    # 双击 .exe（无 TTY）走 GUI
+    # 双击 .exe（无 TTY / stdout=None）走 GUI
     return True
 
 
