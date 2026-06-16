@@ -1,59 +1,62 @@
-# 用户手册 (v0.2.0)
+# 用户手册 (v0.2.1 - IDE 专用)
 
 ## 快速上手
 
-### 1. GUI 模式（推荐 / 解决 v0.1.0 闪退）
+### 1. 安装依赖
 
-直接双击 `swp.exe` 启动 GUI 窗口：
+```bash
+cd /Users/apple/sensitive-words-packer
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
 
-1. **输入路径**：点击「选择...」选择文件或目录
-2. **输出目录**：点击「选择...」选择输出位置
-3. **敏感词列表（.txt）**：可选，每行一个词
-4. **Excel 词表（.xlsx）**：可选，支持按列名/列字母/列号
-5. **规则文件（.json）**：可选，正则表达式规则
-6. **脱敏模式**：勾选 精确匹配 / 模糊匹配 / 正则规则
-7. **通配符**：默认 `***`，可改为 `[已脱敏]` 等
-8. **点击「开始脱敏」**
+### 2. GUI 模式
 
-### 2. 命令行（CLI）
+```bash
+python src/gui.py
+```
 
-#### 2.1 单文件/目录处理
+弹出 tkinter 窗口，操作流程参见 [README.md](../README.md)。
+
+### 3. CLI 模式
+
+#### 3.1 单文件/目录处理
 
 ```bash
 # 单个文件
-python src/cli.py --cli -i input.txt -o output/ \
+python src/cli.py -i input.txt -o output/ \
   --words words.txt --mode exact --wildcard "***"
 
 # 整个目录
-python src/cli.py --cli -i ./input -o ./output \
+python src/cli.py -i ./input -o ./output \
   --words words.txt --rules rules.json --mode exact,fuzzy,rule
 ```
 
-#### 2.2 Excel 词表（v0.2.0）
+#### 3.2 Excel 词表
 
 ```bash
 # 按列名
-python src/cli.py --cli -i ./input -o ./output \
+python src/cli.py -i ./input -o ./output \
   --excel words.xlsx --excel-column "敏感词"
 
 # 按列字母
-python src/cli.py --cli -i ./input -o ./output \
+python src/cli.py -i ./input -o ./output \
   --excel words.xlsx --excel-column "C"
 
 # 按列号（从 0 开始）
-python src/cli.py --cli -i ./input -o ./output \
+python src/cli.py -i ./input -o ./output \
   --excel words.xlsx --excel-column 2
 
 # 指定 Sheet
-python src/cli.py --cli -i ./input -o ./output \
+python src/cli.py -i ./input -o ./output \
   --excel words.xlsx --excel-sheet "财务词表" --excel-column "账号"
 ```
 
-#### 2.3 批量任务（v0.2.0）
+#### 3.3 批量任务
 
 ```bash
-# 跑批量配置
-python src/cli.py --cli --batch tasks.json
+python src/cli.py --batch tasks.json
 ```
 
 JSON 格式：
@@ -85,18 +88,28 @@ JSON 格式：
 }
 ```
 
-### 3. Windows 双击
+### 4. IDE 调试
 
-1. 在 Windows 上执行 `scripts\build_exe.bat` 打包
-2. 产物 `dist\swp.exe` —— **双击启动 GUI**
-3. 命令行模式：在 cmd 中执行 `swp.exe --cli -i ... -o ...`
+- **VSCode**：打开 `src/cli.py` 或 `src/gui.py`，设断点，按 F5
+- **PyCharm**：同上
+- **Jupyter**：
+  ```python
+  import sys
+  sys.path.insert(0, '/Users/apple/sensitive-words-packer/src')
+  from core import SensitiveWordRedactor
+  r = SensitiveWordRedactor(words=['张三'], rules=[])
+  result = r.redact("客户张三和张三三", modes=['word-exact'])
+  print(result.redacted_text)  # "客户***和***"
+  ```
 
-### 4. 安装包
+### 5. 运行测试
 
-在 Windows 上：
-1. `scripts\build_exe.bat` 生成 `dist\swp.exe`
-2. 安装 NSIS 后执行：`makensis scripts\installer.nsi`
-3. 产物：`dist\Sensitive Words Packer-Setup-0.2.0.exe`
+```bash
+python tests/test_core.py     # 8 个核心测试
+python tests/test_excel.py    # 7 个 Excel 测试
+python tests/test_batch.py    # 6 个批量任务测试
+# 合计 21 个测试
+```
 
 ## 敏感词列表格式
 
@@ -150,20 +163,15 @@ admin@company.com
 | 模糊匹配 | 同音/变体 | 中间允许 0-2 个字符 |
 | 正则规则 | 通用模式 | 用户完全控制 |
 
-## v0.1.0 闪退问题
+## v0.1.0 / v0.2.0 历史问题
 
-**症状**：双击 `swp.exe` 后黑窗一闪就消失，工具「打不开」
+- v0.1.0 swp.exe 双击闪退（CLI 程序 0.1s 退出）
+- v0.2.0 引入 GUI + 打包，但 PyInstaller `--windowed` 下 `sys.stdout=None` 引发崩溃
+- v0.2.0 删除 `src/__init__.py` 后 `import core` 失败
 
-**根因**：v0.1.0 的 `swp.exe` 是 PyInstaller 打包的 CLI 程序，0.1s 内执行完 main() 立即退出
-
-**修复**（v0.2.0）：
-- 双击 `swp.exe` 启动 GUI 窗口（tkinter）
-- 命令行模式需显式加 `--cli` 标志
+**v0.2.1 干脆只做 IDE 模式**，避免所有打包相关问题。
 
 ## 常见问题
-
-### Q: 打包后体积大（约 30MB）？
-A: 包含了 reportlab 全套字体（支持中文 PDF）和 openpyxl + python-docx。如不需要 PDF 副产物可裁剪。
 
 ### Q: 中文边界匹配不上？
 A: 中文无空格分词，建议用 `(?<!\d)...(?!\d)` 替代 `\b`。
@@ -171,5 +179,8 @@ A: 中文无空格分词，建议用 `(?<!\d)...(?!\d)` 替代 `\b`。
 ### Q: Excel 列识别错误？
 A: 确认首行是表头（字符串），数据从第 2 行开始。列名区分大小写。
 
-### Q: 双击 .exe 还是闪退？
-A: 确认打包用了 `--windowed` 标志（v0.2.0 workflow 已加）。如仍闪退，查看 `stderr.log`。
+### Q: 想要 .exe 怎么办？
+A: v0.2.1 不再支持。自行打包时**不要**保留 `src/__init__.py`，否则 PyInstaller 会把 `src/` 当 package 导致 `import core` 失败。建议改用 `--onedir` 模式（比 `--onefile` 稳）。
+
+### Q: GUI 启动报错 NameError？
+A: v0.2.1 已修复 `pad` 变量未传递问题。如仍报错请更新代码。

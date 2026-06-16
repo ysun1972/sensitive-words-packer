@@ -106,6 +106,7 @@ class RedactorGUI:
     def _build_single_tab(self, nb: ttk.Notebook):
         tab = ttk.Frame(nb)
         nb.add(tab, text="单次脱敏")
+        pad = {"padx": 6, "pady": 4}
 
         # 输入/输出
         row = 0
@@ -176,6 +177,7 @@ class RedactorGUI:
     def _build_batch_tab(self, nb: ttk.Notebook):
         tab = ttk.Frame(nb)
         nb.add(tab, text="批量任务")
+        pad = {"padx": 6, "pady": 4}
 
         ttk.Label(
             tab,

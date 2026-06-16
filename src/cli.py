@@ -1,102 +1,37 @@
 """
-sensitive-words-packer v0.2.0 入口（dispatcher）
+sensitive-words-packer v0.2.1 命令行入口
 
-启动行为：
-1. 传 `--cli` 标志 → 走命令行模式（v0.1.0 行为）
-2. 无参数 + TTY（终端）→ 走命令行模式
-3. 无参数 + 非 TTY（双击 .exe）→ 启动 GUI
-
-这样能解决 v0.1.0 的"双击闪退"问题，同时保留脚本批处理能力。
+仅在 IDE / 命令行环境下使用；GUI 模式请显式运行 `python src/gui.py`。
 """
 from __future__ import annotations
 
-import io
+import argparse
 import sys
 from pathlib import Path
 
 # 允许直接 python src/cli.py
 sys.path.insert(0, str(Path(__file__).parent))
 
-
-def _safe_streams() -> None:
-    """
-    兜底处理 PyInstaller --windowed / 子进程无 console 场景。
-    在这些场景下 sys.stdout / sys.stderr 是 None，所有 print() 会崩。
-    解决：把 None 替换为写入 stderr.log 的 StringIO。
-    """
-    if sys.stdout is None:
-        sys.stdout = io.StringIO()
-    if sys.stderr is None:
-        sys.stderr = io.StringIO()
-
-
-# 模块加载时就执行一次
-_safe_streams()
-
-
-def _should_launch_gui() -> bool:
-    """判断是否应启动 GUI"""
-    # 显式 --cli 走命令行
-    if "--cli" in sys.argv[1:]:
-        return False
-    # 有任何参数（如 -i）走命令行
-    if len(sys.argv) > 1:
-        return False
-    # TTY（终端）走命令行（开发者场景）
-    # 注意：PyInstaller --windowed 打包后 sys.stdout/sys.stderr 是 None
-    # 此时 .isatty() 会抛 AttributeError，统一按「非 TTY」走 GUI
-    try:
-        stdout_tty = sys.stdout is not None and sys.stdout.isatty()
-    except Exception:
-        stdout_tty = False
-    try:
-        stderr_tty = sys.stderr is not None and sys.stderr.isatty()
-    except Exception:
-        stderr_tty = False
-    if stdout_tty and stderr_tty:
-        return False
-    # 双击 .exe（无 TTY / stdout=None）走 GUI
-    return True
+from core import (
+    SensitiveWordRedactor,
+    load_words_file,
+    load_rules_file,
+)
+from file_handlers import get_handler, copy_file, supported_extensions
+from excel_handler import load_excel_words
+from batch import run_batch
 
 
 def main():
-    if _should_launch_gui():
-        try:
-            from gui import main as gui_main
-            gui_main()
-            return
-        except ImportError as e:
-            print(f"GUI 启动失败 ({e})，回退到命令行模式", file=sys.stderr)
-            print("（命令行用法：swp.exe --cli -i 输入 -o 输出 [选项]）", file=sys.stderr)
-
-    # CLI 模式（剥离 --cli 标记后传给原 main）
-    if "--cli" in sys.argv:
-        sys.argv.remove("--cli")
-    _run_cli()
-
-
-def _run_cli():
-    """原 v0.1.0 命令行主流程"""
-    import argparse
-    from core import (
-        SensitiveWordRedactor,
-        load_words_file,
-        load_rules_file,
-    )
-    from file_handlers import get_handler, copy_file, supported_extensions
-    from excel_handler import load_excel_words
-    from batch import run_batch
-
     parser = argparse.ArgumentParser(
-        description="敏感词脱敏工具 v0.2.0 - 命令行模式",
+        description="敏感词脱敏工具 v0.2.1 - 命令行模式",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-模式（v0.2.0）:
-  - 默认行为：双击 .exe 启动 GUI；命令行使用 --cli 标志
-  - 单文件:  swp.exe --cli -i in.txt -o out/ --words w.txt
-  - 批量:    swp.exe --cli --batch tasks.json
-  - 仅规则:  swp.exe --cli -i in.txt -o out/ --rules r.json --mode rule
-  - Excel:   swp.exe --cli -i in.txt -o out/ --excel words.xlsx
+模式:
+  - 单文件:   python cli.py -i in.txt -o out/ --words w.txt
+  - 批量:     python cli.py --batch tasks.json
+  - 仅规则:   python cli.py -i in.txt -o out/ --rules r.json --mode rule
+  - Excel:    python cli.py -i in.txt -o out/ --excel words.xlsx
         """,
     )
     parser.add_argument("-i", "--input", help="输入文件或目录")
@@ -117,7 +52,6 @@ def _run_cli():
 
     # ---- 批量模式 ----
     if args.batch:
-        from batch import run_batch
         results = run_batch(args.batch)
         for r in results:
             status = "✓" if r.status == "ok" else "✗"

@@ -1,14 +1,10 @@
-# 核心依赖（运行 + 打包）
+# 核心依赖（IDE 运行 / 命令行）
 python-docx>=1.1.0   # .docx 文件读写
 pypdf>=4.0           # .pdf 文件读取
 reportlab>=4.0       # .pdf 文件输出（内置 STSong-Light CJK 字体）
-openpyxl>=3.1        # .xlsx 敏感词表（v0.2.0）
-pyinstaller>=6.0     # 打包为 .exe
+openpyxl>=3.1        # .xlsx 敏感词表
 
-# GUI（v0.2.0）使用 tkinter，是 Python 标准库无需安装
-
-# 可选
-# pdfplumber>=0.10   # 更精准的 PDF 文本提取（中文支持好，但打包体积大）
+# GUI 使用 tkinter，是 Python 标准库无需安装
 
 # 开发依赖
 pytest>=8.0
